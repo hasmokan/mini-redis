@@ -1,17 +1,23 @@
-use mini_redis::{client, Result};
+use mini_redis::{Connection, Frame};
+use tokio::net::{TcpListener, TcpStream};
 
 #[tokio::main]
-async fn main() -> Result<()> {
-    // 建立与mini-redis服务器的连接
-    let mut client = client::connect("127.0.0.1:6379").await?;
+async fn main() {
+    let listener = TcpListener::bind("127.0.0.1:6379").await.unwrap();
 
-    // 设置 key: "hello" 和 值: "world"
-    client.set("hello", "world".into()).await?;
+    loop {
+        let (socket, _) = listener.accept().await.unwrap();
+        process(socket).await;
+    }
+}
 
-    // 获取"key=hello"的值
-    let result = client.get("hello").await?;
+async fn process(socket: TcpStream) {
+    let mut connection = Connection::new(socket);
 
-    println!("从服务器端获取到结果={:?}", result);
+    if let Some(frame) = connection.read_frame().await.unwrap() {
+        println!("Got: {:?}", frame);
 
-    Ok(())
+        let response = Frame::Error("unimplemented".to_string());
+        connection.write_frame(&response).await.unwrap();
+    }
 }
